@@ -10,6 +10,7 @@ open Suave
 open Suave.Filters
 open Suave.Writers
 open Suave.Operators
+open Suave.Logging
 
 open System
 open Wrattler
@@ -25,6 +26,9 @@ let connStrBlob = Environment.GetEnvironmentVariable("CUSTOMCONNSTR_WRATTLER_DAT
 // Server that exposes the R functionality
 // --------------------------------------------------------------------------------------
 
+let logger = Targets.create Verbose [||]
+let logf fmt = Printf.kprintf (fun s -> logger.info(Message.eventX s)) fmt
+
 let app =
   setHeader  "Access-Control-Allow-Origin" "*"
   >=> setHeader "Access-Control-Allow-Headers" "content-type"
@@ -32,19 +36,23 @@ let app =
     OPTIONS >=> 
       Successful.OK "CORS approved"
 
+    GET >=> path "/" >=>  
+      Successful.OK "Service is running..."
+
     GET >=> pathScan "/%s" (fun file ctx -> async {
+      logf "Reading blob: %s" file
       let! blob = Storage.tryReadBlobAsync connStrBlob "data" file
+      logf "Read blob: %s (length = %d)" file (match blob with Some b -> b.Length | _ -> -1)
       match blob with 
       | Some json -> return! Successful.OK json ctx 
       | None -> return! RequestErrors.NOT_FOUND "" ctx })
 
     PUT >=> pathScan "/%s" (fun file ctx -> async {
       let json = System.Text.UTF32Encoding.UTF8.GetString(ctx.request.rawForm)
+      logf "Uploading blob: %s (length = %d)" file json.Length
       do! Storage.writeBlobAsync connStrBlob "data" file json
+      logf "Uploaded blob: %s" file 
       return! Successful.OK "Created" ctx })
-
-    GET >=> path "/" >=>  
-      Successful.OK "Service is running..."
   ]
 
 // --------------------------------------------------------------------------------------
