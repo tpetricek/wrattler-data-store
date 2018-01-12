@@ -31,6 +31,7 @@ let logf fmt = Printf.kprintf (fun s -> logger.info(Message.eventX s)) fmt
 
 let app =
   setHeader  "Access-Control-Allow-Origin" "*"
+  >=> setHeader "Access-Control-Allow-Methods" "GET,PUT"
   >=> setHeader "Access-Control-Allow-Headers" "content-type"
   >=> choose [
     OPTIONS >=> 
