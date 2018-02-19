@@ -22,7 +22,7 @@ Target "clean" (fun _ ->
 )
 
 Target "build" (fun _ ->
-  [ "wrattler-r-service.sln" ]
+  [ "wrattler-data-store.sln" ]
   |> MSBuildRelease "" "Rebuild"
   |> Log ""
 )
