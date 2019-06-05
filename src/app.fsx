@@ -29,6 +29,8 @@ let connStrBlob = Environment.GetEnvironmentVariable("CUSTOMCONNSTR_WRATTLER_DAT
 let logger = Targets.create Verbose [||]
 let logf fmt = Printf.kprintf (fun s -> logger.info(Message.eventX s)) fmt
 
+let cache = System.Collections.Concurrent.ConcurrentDictionary<_, string>()
+
 let app =
   setHeader  "Access-Control-Allow-Origin" "*"
   >=> setHeader "Access-Control-Allow-Methods" "GET,PUT"
@@ -43,6 +45,7 @@ let app =
     GET >=> pathScan "/%s" (fun file ctx -> async {
       logf "Reading blob: %s" file
       let! blob = Storage.tryReadBlobAsync connStrBlob "data" file
+      let blob = match cache.TryGetValue(file) with true, blob -> Some blob | _ -> None
       logf "Read blob: %s (length = %d)" file (match blob with Some b -> b.Length | _ -> -1)
       match blob with 
       | Some json -> return! Successful.OK json ctx 
@@ -51,6 +54,7 @@ let app =
     PUT >=> pathScan "/%s" (fun file ctx -> async {
       let json = System.Text.UTF32Encoding.UTF8.GetString(ctx.request.rawForm)
       logf "Uploading blob: %s (length = %d)" file json.Length
+      cache.TryAdd(file, json) |> ignore
       do! Storage.writeBlobAsync connStrBlob "data" file json
       logf "Uploaded blob: %s" file 
       return! Successful.OK "Created" ctx })
